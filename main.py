@@ -1,4 +1,6 @@
-from transformers import AutoTokenizer
+from transformers import AutoModel, AutoTokenizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 import torch
 
 EN_MODEL_NAME = "distilbert-base-uncased"
@@ -59,9 +61,62 @@ def explain_tokenization(text, tokenizer):
 # print(f'Decoded: {tokenizer.decode(single["input_ids"][0])}')
 
 
+def get_embeddings(texts, tokenizer, model, batch_size=32):
+    all_embeddings = []
+
+    for i in range(0, len(texts), batch_size):
+        batch_texts = texts[i:i + batch_size]
+        tokens = tokenize_texts(batch_texts, tokenizer)
+
+        with torch.no_grad():
+            outputs = model(**tokens)
+
+        cls_embeddings = outputs.last_hidden_state[:, 0, :]
+        all_embeddings.append(cls_embeddings.cpu().numpy())
+
+    return np.vstack(all_embeddings)
+
+
+def similarity(text1, text2, tokenizer, model):
+    emb = get_embeddings([text1, text2], tokenizer, model)
+    sim = cosine_similarity(emb[0:1], emb[1:2])[0][0]
+    return sim
+
+
 def main():
     tokenizer = AutoTokenizer.from_pretrained(EN_MODEL_NAME)
     explain_tokenization("Transformers are amazing!", tokenizer)
+
+    model = AutoModel.from_pretrained(EN_MODEL_NAME)
+    model.eval()
+    print(model)
+
+    text = "This movie was absolutely amazing!"
+    tokens = tokenizer(text, return_tensors="pt")
+    with torch.no_grad():
+        outputs = model(**tokens)
+
+    print(type(outputs))
+    print(outputs.last_hidden_state.shape)
+
+    cls_embedding = outputs.last_hidden_state[:, 0, :]
+    print(f'CLS embedding shape: {cls_embedding.shape}')
+    print(f'CLS embedding: {cls_embedding[0][:5]}...')
+
+    texts = [
+        "This movie was absolutely amazing!",
+        "Terrible movie, waste of time.",
+        "Pretty good, I liked it.",
+        "Boring and too long."
+    ]
+    embeddings = get_embeddings(texts, tokenizer, model)
+    print(f'Embeddings shape: {embeddings.shape}')
+    print('Ожидается: (4, 768) для DistilBERT')
+
+    sim1 = similarity("Great movie!", "Amazing film!", tokenizer, model)
+    sim2 = similarity("Great movie!", "Terrible film!", tokenizer, model)
+    print(f'Сходство похожих: {sim1:.3f}')
+    print(f'Сходство разных: {sim2:.3f}')
 
 if __name__ == "__main__":
     main()
