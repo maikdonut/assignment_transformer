@@ -14,5 +14,10 @@ CSV_COLUMNS = ["tweet_id", "entity", "sentiment", "text"]
 
 MAX_LENGTH = 128
 BATCH_SIZE = 32
+FINETUNE_BATCH_SIZE = 64
+LEARNING_RATE = 2e-5
+NUM_EPOCHS = 3
 
 BASELINE_RESULTS_PATH = ROOT / "baseline_results.txt"
+FINE_TUNED_MODEL_DIR = ROOT / "fine_tuned_model"
+FINE_TUNED_RESULTS_PATH = ROOT / "fine_tuned_results.txt"

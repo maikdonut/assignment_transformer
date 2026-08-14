@@ -10,6 +10,7 @@ import torch
 
 from baseline import run_baseline
 from embeddings import get_cls_embeddings, load_encoder
+from finetune import run_finetune
 from tokenization import load_tokenizer, tokenize_texts
 
 PLOTS_DIR = Path("attention_plots")
@@ -169,11 +170,22 @@ def run_attention():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Assignment transformer: baseline и attention")
+    parser = argparse.ArgumentParser(description="Assignment transformer: baseline, attention и fine-tuning")
     parser.add_argument(
         "--attention",
         action="store_true",
         help="Запустить визуализацию внимания (День 3)",
+    )
+    parser.add_argument(
+        "--finetune",
+        action="store_true",
+        help="Дообучить DistilBERT на датасете (День 5)",
+    )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=None,
+        help="Ограничить размер train для короткого прогона fine-tuning",
     )
     return parser.parse_args()
 
@@ -182,6 +194,10 @@ def main():
     args = parse_args()
     if args.attention:
         run_attention()
+        return
+    if args.finetune:
+        print("=== День 5: Fine-tuning DistilBERT ===")
+        run_finetune(max_samples=args.max_samples)
         return
 
     smoke_tokenization()

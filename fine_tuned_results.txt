@@ -1,0 +1,20 @@
+model: distilbert-base-uncased
+task: sequence classification, num_labels=4
+epochs: 3
+batch_size: 64
+learning_rate: 2e-05
+split: train=twitter_training.csv (73996), val=twitter_validation.csv (1000)
+Final Validation Accuracy: 0.9620
+Final Validation F1: 0.9606
+baseline macro F1: 0.6017
+
+              precision    recall  f1-score   support
+
+  Irrelevant       0.94      0.95      0.94       172
+    Negative       0.99      0.95      0.97       266
+     Neutral       0.95      0.96      0.95       285
+    Positive       0.96      0.98      0.97       277
+
+    accuracy                           0.96      1000
+   macro avg       0.96      0.96      0.96      1000
+weighted avg       0.96      0.96      0.96      1000
