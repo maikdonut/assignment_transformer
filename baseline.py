@@ -1,9 +1,11 @@
+import joblib
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, f1_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from config import (
+    BASELINE_MODEL_PATH,
     BASELINE_RESULTS_PATH,
     CACHE_DIR,
     EN_MODEL_NAME,
@@ -12,6 +14,46 @@ from config import (
 )
 from data import load_train_val
 from embeddings import get_cls_embeddings, load_encoder
+
+
+def make_baseline_pipeline():
+    return Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("lr", LogisticRegression(max_iter=1000, n_jobs=-1)),
+        ]
+    )
+
+
+def fit_and_save_baseline(X_train, y_train):
+    clf = make_baseline_pipeline()
+    clf.fit(X_train, y_train)
+    joblib.dump(clf, BASELINE_MODEL_PATH)
+    print(f"Baseline модель сохранена: {BASELINE_MODEL_PATH}")
+    return clf
+
+
+def load_or_fit_baseline():
+    if BASELINE_MODEL_PATH.exists():
+        print(f"Загружаю baseline: {BASELINE_MODEL_PATH}")
+        return joblib.load(BASELINE_MODEL_PATH)
+
+    print("baseline_model.pkl не найден, обучаю Logistic Regression на кэше CLS")
+    train_df, _ = load_train_val()
+    train_cache = CACHE_DIR / "train_cls.npy"
+    encoder_kwargs = {}
+    if not train_cache.exists():
+        tokenizer, model, device = load_encoder()
+        print(f"Модель: {EN_MODEL_NAME}, device: {device}")
+        encoder_kwargs = dict(tokenizer=tokenizer, model=model, device=device)
+
+    X_train = get_cls_embeddings(
+        train_df["text"].tolist(),
+        cache_path=train_cache,
+        **encoder_kwargs,
+    )
+    y_train = train_df["sentiment"].to_numpy()
+    return fit_and_save_baseline(X_train, y_train)
 
 
 def run_baseline():
@@ -46,13 +88,7 @@ def run_baseline():
     )
     print(f"X_train {X_train.shape}, X_test {X_test.shape}")
 
-    clf = Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            ("lr", LogisticRegression(max_iter=1000, n_jobs=-1)),
-        ]
-    )
-    clf.fit(X_train, y_train)
+    clf = fit_and_save_baseline(X_train, y_train)
     y_pred = clf.predict(X_test)
 
     report = classification_report(y_test, y_pred)

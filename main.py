@@ -9,6 +9,7 @@ import seaborn as sns
 import torch
 
 from baseline import run_baseline
+from compare import run_compare
 from embeddings import get_cls_embeddings, load_encoder
 from finetune import run_finetune
 from tokenization import load_tokenizer, tokenize_texts
@@ -170,7 +171,9 @@ def run_attention():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Assignment transformer: baseline, attention и fine-tuning")
+    parser = argparse.ArgumentParser(
+        description="Assignment transformer: baseline, attention, fine-tuning и сравнение"
+    )
     parser.add_argument(
         "--attention",
         action="store_true",
@@ -187,6 +190,11 @@ def parse_args():
         default=None,
         help="Ограничить размер train для короткого прогона fine-tuning",
     )
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="Сравнить baseline и fine-tuned модель (День 6)",
+    )
     return parser.parse_args()
 
 
@@ -198,6 +206,10 @@ def main():
     if args.finetune:
         print("=== День 5: Fine-tuning DistilBERT ===")
         run_finetune(max_samples=args.max_samples)
+        return
+    if args.compare:
+        print("=== День 6: Инференс и сравнение моделей ===")
+        run_compare()
         return
 
     smoke_tokenization()
