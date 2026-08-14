@@ -1,92 +1,22 @@
+import argparse
 from pathlib import Path
 
-from transformers import AutoModel, AutoTokenizer
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 import seaborn as sns
 import torch
 
+from baseline import run_baseline
+from embeddings import get_cls_embeddings, load_encoder
+from tokenization import load_tokenizer, tokenize_texts
+
 PLOTS_DIR = Path("attention_plots")
-
-EN_MODEL_NAME = "distilbert-base-uncased"
-RU_MODEL_NAME = "distilbert-base-multilingual-cased"
-
-def tokenize_texts(texts, tokenizer, max_length=128):
-    return tokenizer(
-        texts,
-        padding=True,
-        truncation=True,
-        max_length=max_length,
-        return_tensors="pt"
-    )
-
-def explain_tokenization(text, tokenizer):
-    tokens = tokenizer.tokenize(text)
-    ids = tokenizer.convert_tokens_to_ids(tokens)
-
-    print(f'Исходный текст: {text}')
-    print(f'Токены: {tokens}')
-    print(f'IDs: {ids}')
-    print(f'Количество: {len(tokens)}')
-
-
-
-# print(tokenizer.vocab_size)
-# print(tokenizer.model_max_length)
-# text = "This movie was absolutely amazing!"
-# tokens = tokenizer(text)
-# print(tokens)
-
-# input_ids = tokens["input_ids"]
-# print(tokenizer.convert_ids_to_tokens(input_ids))
-# print(f"Количество токенов: {len(input_ids)}")
-# decoded = tokenizer.decode(input_ids)
-# print(f"Декодировано: {decoded}")
-
-
-
-# texts = [
-#     "This movie was great!",
-#     "Terrible movie, waste of time."
-# ]
-
-# tokens = tokenize_texts(texts, tokenizer)
-# print(f'Shape: {tokens["input_ids"].shape}')
-# print(f'Attention mask:\n{tokens["attention_mask"]}')
-# print(tokenizer.convert_ids_to_tokens(tokens["input_ids"][0]))
-# print(tokenizer.convert_ids_to_tokens(tokens["input_ids"][1]))
-
-
-# print(f'CLS token: {tokenizer.cls_token} (ID: {tokenizer.cls_token_id})')
-# print(f'SEP token: {tokenizer.sep_token} (ID: {tokenizer.sep_token_id})')
-# print(f'PAD token: {tokenizer.pad_token} (ID: {tokenizer.pad_token_id})')
-
-# single = tokenizer(text, return_tensors="pt")
-# print(f'Input IDs: {single["input_ids"]}')
-# print(f'Decoded: {tokenizer.decode(single["input_ids"][0])}')
-
-
-def get_embeddings(texts, tokenizer, model, batch_size=32):
-    all_embeddings = []
-
-    for i in range(0, len(texts), batch_size):
-        batch_texts = texts[i:i + batch_size]
-        tokens = tokenize_texts(batch_texts, tokenizer)
-
-        with torch.no_grad():
-            outputs = model(**tokens)
-
-        cls_embeddings = outputs.last_hidden_state[:, 0, :]
-        all_embeddings.append(cls_embeddings.cpu().numpy())
-
-    return np.vstack(all_embeddings)
 
 
 def similarity(text1, text2, tokenizer, model):
-    emb = get_embeddings([text1, text2], tokenizer, model)
+    emb = get_cls_embeddings([text1, text2], tokenizer=tokenizer, model=model)
     sim = cosine_similarity(emb[0:1], emb[1:2])[0][0]
     return sim
 
@@ -151,13 +81,45 @@ def top_attended_tokens(tokens, attention, tokenizer, query_token, layer=5, head
             print(f"  {token_list[i]:12s}  {weight:.4f}")
 
 
-def main():
-    tokenizer = AutoTokenizer.from_pretrained(EN_MODEL_NAME)
-    model = AutoModel.from_pretrained(EN_MODEL_NAME, output_attentions=True)
-    model.eval()
+def smoke_tokenization():
+    print("=== Задача 1: токенизация ===")
+    tokenizer = load_tokenizer()
+    texts = [
+        "This movie was great!",
+        "Terrible movie, waste of time.",
+        "I have mixed feelings about this game.",
+    ]
+    tokens = tokenize_texts(texts, tokenizer=tokenizer)
+    print(f"input_ids shape: {tokens['input_ids'].shape}")
+    print(f"attention_mask:\n{tokens['attention_mask']}")
+    for i, text in enumerate(texts):
+        decoded = tokenizer.convert_ids_to_tokens(tokens["input_ids"][i])
+        print(f"\nТекст: {text}")
+        print(f"Токены: {decoded}")
+    return tokens
+
+
+def smoke_embeddings():
+    print("\n=== Задача 2: CLS-эмбеддинги ===")
+    texts = [
+        "This movie was great!",
+        "Terrible movie, waste of time.",
+        "I have mixed feelings about this game.",
+    ]
+    embeddings = get_cls_embeddings(texts)
+    print(f"Embeddings shape: {embeddings.shape}")
+    expected = (len(texts), 768)
+    if embeddings.shape != expected:
+        raise ValueError(f"Ожидали shape {expected}, получили {embeddings.shape}")
+    return embeddings
+
+
+def run_attention():
+    tokenizer, model, device = load_encoder(output_attentions=True)
 
     text = "The amazing movie won many awards"
     tokens = tokenizer(text, return_tensors="pt")
+    tokens = {key: value.to(device) for key, value in tokens.items()}
     with torch.no_grad():
         outputs = model(**tokens)
 
@@ -183,6 +145,7 @@ def main():
 
     sentiment_text = "This movie was absolutely terrible and I hated it"
     sentiment_tokens = tokenizer(sentiment_text, return_tensors="pt")
+    sentiment_tokens = {key: value.to(device) for key, value in sentiment_tokens.items()}
     with torch.no_grad():
         sentiment_outputs = model(**sentiment_tokens)
 
@@ -203,6 +166,29 @@ def main():
         layer=last_layer,
         head=0,
     )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Assignment transformer: baseline и attention")
+    parser.add_argument(
+        "--attention",
+        action="store_true",
+        help="Запустить визуализацию внимания (День 3)",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    if args.attention:
+        run_attention()
+        return
+
+    smoke_tokenization()
+    smoke_embeddings()
+    print("\n=== Задача 3: Logistic Regression ===")
+    run_baseline()
+
 
 if __name__ == "__main__":
     main()

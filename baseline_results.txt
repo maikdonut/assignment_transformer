@@ -1,0 +1,15 @@
+model: distilbert-base-uncased
+classifier: StandardScaler + LogisticRegression(max_iter=1000, n_jobs=-1)
+split: train=twitter_training.csv (73996), val=twitter_validation.csv (1000)
+macro F1: 0.6017
+
+              precision    recall  f1-score   support
+
+  Irrelevant       0.59      0.39      0.47       172
+    Negative       0.62      0.76      0.68       266
+     Neutral       0.63      0.56      0.59       285
+    Positive       0.63      0.70      0.66       277
+
+    accuracy                           0.62      1000
+   macro avg       0.62      0.60      0.60      1000
+weighted avg       0.62      0.62      0.61      1000

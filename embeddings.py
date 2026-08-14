@@ -1,0 +1,65 @@
+from pathlib import Path
+
+import numpy as np
+import torch
+from transformers import AutoModel
+
+from config import BATCH_SIZE, EN_MODEL_NAME, MAX_LENGTH
+from tokenization import load_tokenizer, tokenize_texts
+
+
+def get_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def load_encoder(model_name=EN_MODEL_NAME, device=None, output_attentions=False):
+    if device is None:
+        device = get_device()
+    tokenizer = load_tokenizer(model_name)
+    model = AutoModel.from_pretrained(model_name, output_attentions=output_attentions)
+    model.to(device)
+    model.eval()
+    return tokenizer, model, device
+
+
+def get_cls_embeddings(
+    texts,
+    batch_size=BATCH_SIZE,
+    tokenizer=None,
+    model=None,
+    device=None,
+    max_length=MAX_LENGTH,
+    cache_path=None,
+):
+    cache_path = Path(cache_path) if cache_path is not None else None
+    if cache_path is not None and cache_path.exists():
+        print(f"Загружаю эмбеддинги из кэша: {cache_path}")
+        return np.load(cache_path)
+
+    if tokenizer is None or model is None:
+        tokenizer, model, device = load_encoder(device=device)
+    elif device is None:
+        device = next(model.parameters()).device
+
+    all_embeddings = []
+    n_texts = len(texts)
+    for start in range(0, n_texts, batch_size):
+        batch_texts = texts[start : start + batch_size]
+        tokens = tokenize_texts(batch_texts, max_length=max_length, tokenizer=tokenizer)
+        tokens = {key: value.to(device) for key, value in tokens.items()}
+        with torch.no_grad():
+            outputs = model(**tokens)
+        cls_embeddings = outputs.last_hidden_state[:, 0, :]
+        all_embeddings.append(cls_embeddings.cpu().numpy())
+        done = min(start + batch_size, n_texts)
+        if done == n_texts or done % (batch_size * 20) == 0:
+            print(f"Эмбеддинги: {done}/{n_texts}")
+
+    embeddings = np.vstack(all_embeddings)
+
+    if cache_path is not None:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(cache_path, embeddings)
+        print(f"Сохранены эмбеддинги: {cache_path}")
+
+    return embeddings
