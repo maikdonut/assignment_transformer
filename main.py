@@ -1,7 +1,15 @@
+from pathlib import Path
+
 from transformers import AutoModel, AutoTokenizer
 from sklearn.metrics.pairwise import cosine_similarity
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 import torch
+
+PLOTS_DIR = Path("attention_plots")
 
 EN_MODEL_NAME = "distilbert-base-uncased"
 RU_MODEL_NAME = "distilbert-base-multilingual-cased"
@@ -83,40 +91,118 @@ def similarity(text1, text2, tokenizer, model):
     return sim
 
 
+def visualize_attention(tokens, attention, tokenizer, layer=0, head=0, suffix=""):
+    """
+    tokens: токенизированный текст
+    attention: attention weights от модели
+    tokenizer: токенизатор для подписей осей
+    layer: номер слоя для визуализации
+    head: номер головы для визуализации
+    suffix: суффикс имени файла, чтобы не перезаписывать графики
+    """
+    attn = attention[layer][0, head]
+    token_list = tokenizer.convert_ids_to_tokens(tokens["input_ids"][0])
+
+    PLOTS_DIR.mkdir(exist_ok=True)
+    filename = f"attention_layer{layer}_head{head}{suffix}.png"
+    filepath = PLOTS_DIR / filename
+
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(
+        attn.cpu().numpy(),
+        xticklabels=token_list,
+        yticklabels=token_list,
+        cmap="viridis",
+        cbar=True,
+    )
+    plt.title(f"Attention - Layer {layer}, Head {head}")
+    plt.xlabel("Keys")
+    plt.ylabel("Queries")
+    plt.tight_layout()
+    plt.savefig(filepath)
+    plt.close()
+
+    print(f"Сохранено: {filepath}")
+    print(f"Токены: {token_list}")
+    return filepath
+
+
+def top_attended_tokens(tokens, attention, tokenizer, query_token, layer=5, head=0, top_k=5):
+    """Печатает токены с наибольшим вниманием для query-позиции query_token."""
+    token_list = tokenizer.convert_ids_to_tokens(tokens["input_ids"][0])
+    query_positions = [i for i, tok in enumerate(token_list) if tok == query_token]
+    if not query_positions:
+        print(f'Токен "{query_token}" не найден среди {token_list}')
+        return
+
+    attn = attention[layer][0, head]
+    skip = {tokenizer.cls_token, tokenizer.sep_token, tokenizer.pad_token}
+
+    for pos in query_positions:
+        weights = attn[pos]
+        ranked = sorted(
+            enumerate(weights.tolist()),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        ranked = [(i, w) for i, w in ranked if token_list[i] not in skip][:top_k]
+        print(f'\nQuery "{token_list[pos]}" (позиция {pos}), слой {layer}, голова {head}:')
+        for i, weight in ranked:
+            print(f"  {token_list[i]:12s}  {weight:.4f}")
+
+
 def main():
     tokenizer = AutoTokenizer.from_pretrained(EN_MODEL_NAME)
-    explain_tokenization("Transformers are amazing!", tokenizer)
-
-    model = AutoModel.from_pretrained(EN_MODEL_NAME)
+    model = AutoModel.from_pretrained(EN_MODEL_NAME, output_attentions=True)
     model.eval()
-    print(model)
 
-    text = "This movie was absolutely amazing!"
+    text = "The amazing movie won many awards"
     tokens = tokenizer(text, return_tensors="pt")
     with torch.no_grad():
         outputs = model(**tokens)
 
-    print(type(outputs))
-    print(outputs.last_hidden_state.shape)
+    print(type(outputs.attentions))
+    print(f"Количество слоёв: {len(outputs.attentions)}")
+    print(f"Форма attention для слоя 0: {outputs.attentions[0].shape}")
 
-    cls_embedding = outputs.last_hidden_state[:, 0, :]
-    print(f'CLS embedding shape: {cls_embedding.shape}')
-    print(f'CLS embedding: {cls_embedding[0][:5]}...')
+    attention = outputs.attentions[0]
+    print(f"Attention shape: {attention.shape}")
+    attn_single = attention[0, 0]
+    print(f"Single head shape: {attn_single.shape}")
 
-    texts = [
-        "This movie was absolutely amazing!",
-        "Terrible movie, waste of time.",
-        "Pretty good, I liked it.",
-        "Boring and too long."
-    ]
-    embeddings = get_embeddings(texts, tokenizer, model)
-    print(f'Embeddings shape: {embeddings.shape}')
-    print('Ожидается: (4, 768) для DistilBERT')
+    last_layer = len(outputs.attentions) - 1
+    mid_layer = len(outputs.attentions) // 2
+    print("\n--- Слои (голова 0) ---")
+    visualize_attention(tokens, outputs.attentions, tokenizer, layer=0, head=0)
+    visualize_attention(tokens, outputs.attentions, tokenizer, layer=mid_layer, head=0)
+    visualize_attention(tokens, outputs.attentions, tokenizer, layer=last_layer, head=0)
 
-    sim1 = similarity("Great movie!", "Amazing film!", tokenizer, model)
-    sim2 = similarity("Great movie!", "Terrible film!", tokenizer, model)
-    print(f'Сходство похожих: {sim1:.3f}')
-    print(f'Сходство разных: {sim2:.3f}')
+    print("\n--- Головы слоя 0 ---")
+    for head in range(model.config.num_attention_heads):
+        visualize_attention(tokens, outputs.attentions, tokenizer, layer=0, head=head)
+
+    sentiment_text = "This movie was absolutely terrible and I hated it"
+    sentiment_tokens = tokenizer(sentiment_text, return_tensors="pt")
+    with torch.no_grad():
+        sentiment_outputs = model(**sentiment_tokens)
+
+    print("\n--- Сентимент-пример ---")
+    visualize_attention(
+        sentiment_tokens,
+        sentiment_outputs.attentions,
+        tokenizer,
+        layer=last_layer,
+        head=0,
+        suffix="_sentiment",
+    )
+    top_attended_tokens(
+        sentiment_tokens,
+        sentiment_outputs.attentions,
+        tokenizer,
+        query_token="terrible",
+        layer=last_layer,
+        head=0,
+    )
 
 if __name__ == "__main__":
     main()
