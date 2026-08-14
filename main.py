@@ -11,6 +11,7 @@ import torch
 from baseline import run_baseline
 from compare import run_compare
 from embeddings import get_cls_embeddings, load_encoder
+from error_analysis import run_error_analysis
 from finetune import run_finetune
 from tokenization import load_tokenizer, tokenize_texts
 
@@ -172,7 +173,7 @@ def run_attention():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Assignment transformer: baseline, attention, fine-tuning и сравнение"
+        description="Assignment transformer: baseline, attention, fine-tuning, сравнение и анализ ошибок"
     )
     parser.add_argument(
         "--attention",
@@ -195,6 +196,11 @@ def parse_args():
         action="store_true",
         help="Сравнить baseline и fine-tuned модель (День 6)",
     )
+    parser.add_argument(
+        "--errors",
+        action="store_true",
+        help="Анализ ошибок fine-tuned модели (День 7)",
+    )
     return parser.parse_args()
 
 
@@ -210,6 +216,10 @@ def main():
     if args.compare:
         print("=== День 6: Инференс и сравнение моделей ===")
         run_compare()
+        return
+    if args.errors:
+        print("=== День 7: Анализ ошибок ===")
+        run_error_analysis()
         return
 
     smoke_tokenization()

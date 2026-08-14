@@ -1,0 +1,228 @@
+=== АНАЛИЗ ОШИБОК ===
+
+split: val=twitter_validation.csv (1000)
+Всего ошибок: 38 (3.8%)
+False Positives (Positive вместо Negative): 1
+False Negatives (Negative вместо Positive): 0
+Прочие ошибки: 37
+
+=== ПАРЫ ПУТАНИЦЫ (true → pred) ===
+  Irrelevant → Negative: 2
+  Irrelevant → Neutral: 3
+  Irrelevant → Positive: 4
+  Negative → Irrelevant: 4
+  Negative → Neutral: 7
+  Negative → Positive: 1
+  Neutral → Irrelevant: 5
+  Neutral → Positive: 6
+  Positive → Irrelevant: 1
+  Positive → Neutral: 5
+
+=== ДЛИНА ТЕКСТОВ ===
+Средняя длина ошибочных текстов: 158
+Средняя длина всех текстов: 132
+
+=== ТОП ENTITY СРЕДИ ОШИБОК ===
+  TomClancysRainbowSix: 5
+  CallOfDuty: 4
+  ApexLegends: 3
+  RedDeadRedemption(RDR): 3
+  PlayerUnknownsBattlegrounds(PUBG): 3
+  WorldOfCraft: 2
+  Xbox(Xseries): 2
+  Overwatch: 2
+  FIFA: 2
+  NBA2K: 1
+
+=== ПРИМЕРЫ FALSE POSITIVES ===
+предсказала Positive, истинный класс Negative
+
+Текст: I’m addicted to call of duty mobile😅
+Entity: CallOfDuty
+Истинный: Negative, Предсказан: Positive
+
+=== ПРИМЕРЫ FALSE NEGATIVES ===
+предсказала Negative, истинный класс Positive
+
+(нет примеров)
+
+
+=== ПРОЧИЕ ОШИБКИ ===
+
+Текст: They might not be the last team that has to make this difficult decision. #update #overwatchleague #nyxl #overwatch #overwatch2 #blizzard #games #lockdown pic.twitter.com/dI1HTl4mcV
+Entity: Overwatch
+Истинный: Irrelevant, Предсказан: Negative
+Текст: Leaked memo excoriates #Facebook’s ‘slapdash and haphazard’ response to global political manipulation dlvr.it/RgbzJD https://t.co/M7JAMQeF7e
+Entity: Facebook
+Истинный: Negative, Предсказан: Neutral
+Текст: feels good to get a Victory in #ApexLegends with your high school buddies. we are all in our late 20's now.  @VictorpMeraz4  @NOLDRAY #FreaksAndGeeks deserved a second season!!!
+Entity: ApexLegends
+Истинный: Positive, Предсказан: Irrelevant
+Текст: Sorta amusing how #nba2k has such self-centered community managers that have built up such limited goodwill, that when they released a demo identical to 2k20, everyone was vocal about it being trash #NBA2K21 
+ https://t.co/Nw1LMRJGN6
+Entity: NBA2K
+Истинный: Negative, Предсказан: Irrelevant
+Текст: So good I had to share! Check out all the items I'm loving on @Poshmarkapp from @ShopAngryKitty #poshmark #fashion #style #shopmycloset #pier1 #leagueoflegends: posh.mk/7ZpkTUiSf9 https://t.co/pPGBdxFVm6
+Entity: LeagueOfLegends
+Истинный: Neutral, Предсказан: Irrelevant
+Текст: what a joke #TomClancysRainbowSixSiege #XboxShare pic.twitter.com/flxOM0xVub
+Entity: TomClancysRainbowSix
+Истинный: Negative, Предсказан: Irrelevant
+Текст: Hella excited for tonight, as always! 👀
+
+I'll be participating under @AceOfPyrite's leadership, and I'm looking forward to a terrific evening of #RainbowSixSiege!
+
+If you're looking for some Siege to watch, swing by and say hello, from 19:00 BST! 👍
+
+twitch.tv/rainbowsix_uk
+Entity: TomClancysRainbowSix
+Истинный: Positive, Предсказан: Neutral
+Текст: Plague of Corruption is #1 on Amazon and # 3 on The NY Times bestseller list. pic.twitter.com/mr2gbN43I9
+Entity: Amazon
+Истинный: Negative, Предсказан: Neutral
+Текст: #WorldCupAtHome: Five African matches you would love to see from FIFA googlehits.com/worldcupathome… https://t.co/Lvr8g2vhsn
+Entity: FIFA
+Истинный: Positive, Предсказан: Neutral
+Текст: Red Dead Redemption 2 Load Times
+Xbox Series X: 38 Seconds
+PS5: 10-12 Seconds
+#XboxSeriesX #PS5 Yet again Sony still have the better machine
+Entity: RedDeadRedemption(RDR)
+Истинный: Irrelevant, Предсказан: Positive
+Текст: Mori😻😻😻😻
+Entity: GrandTheftAuto(GTA)
+Истинный: Neutral, Предсказан: Positive
+Текст: Worst thing about #PUBG banned is that all the players didn’t knew this ban till the App shown error in playing as non of them is in Social Media nor watch any NEWS 🤣🤣
+
+#PUBGMOBILE
+Entity: PlayerUnknownsBattlegrounds(PUBG)
+Истинный: Irrelevant, Предсказан: Negative
+Текст: Fuck my mates #CallOfDuty #ModernWarfare #CallOfDutyModernWarfare #PS4 #PS4share pic.twitter.com/rq7o2ruIAP
+Entity: CallOfDuty
+Истинный: Irrelevant, Предсказан: Neutral
+Текст: EXTRAORDINARY: Podcast about Deanna Berg's fight against bilateral ovarian #Cancer & her determination to hold Johnson & Johnson to account over its negligence in selling talc-based baby powder. 
+witnesspodcasts.com/shows/verified…
+Entity: johnson&johnson
+Истинный: Negative, Предсказан: Neutral
+Текст: It was ab fab seeing the 6 bungalows built in #walsden by @localitynews member @CVCLT1 with support from @Calderdale & many others. Highlights are seeing @dawsonjohn & family, and Andrew Bibby and his spade! Trustees going beyond the call of duty @CommLedHousing (brand colours!) pic.twitter.com/xKQnayVdHk
+Entity: CallOfDuty
+Истинный: Irrelevant, Предсказан: Positive
+Текст: How is banning #PUBG going to fix anything? All it's gonna do, is make everything worse. What do they expect people to do in this lockdown?
+Entity: PlayerUnknownsBattlegrounds(PUBG)
+Истинный: Negative, Предсказан: Irrelevant
+Текст: Absolutely love my amazing sister who has made me this absolutely incredible #Dokkaebi bookmark 😍
+#RainbowSixSiege #R6S pic.twitter.com/WR604R9u5s
+Entity: TomClancysRainbowSix
+Истинный: Neutral, Предсказан: Irrelevant
+Текст: My main reason for wanting the #PS5 is because the next God of War will eventually be on it. Until I get that announcement, I'll probably be waiting on it. Especially since RE8 will be on PC anyways. :3 Overall I'm excited for the games though! :D
+Entity: PlayStation5(PS5)
+Истинный: Neutral, Предсказан: Positive
+Текст: All most got that ace in ranked #xboxclips #RainbowSixSiege #clutchwin clutch.win/posts/breezier…
+Entity: TomClancysRainbowSix
+Истинный: Neutral, Предсказан: Irrelevant
+Текст: #writingcommunity I just want to take a second to give a SO to the microphone in Microsoft Word. I said “etymologically unrelated” and it actually got it right. WOW we have come a long way baby!
+
+#Microsoft #microsoftword
+Entity: Microsoft
+Истинный: Positive, Предсказан: Neutral
+Текст: While it's true that #GhostReconBreakpoint needs a lot of support and fixes, they definitely nailed the atmosphere and ambiance.  Some of these vistas are just incredible.  Here's hoping March 24th brings the changes the game needs. pic.twitter.com/mgHag6dlEM
+Entity: TomClancysGhostRecon
+Истинный: Neutral, Предсказан: Positive
+Текст: YOOOOOOO The PS5 design looks so slick, it makes the Xbox Series X look like a boring PC Box. #PS5Reveal
+Entity: Xbox(Xseries)
+Истинный: Negative, Предсказан: Neutral
+Текст: Red dead redemption 2 #RDR2 #letsplay #playthrough youtu.be/JoysFxH2r9o
+Entity: RedDeadRedemption(RDR)
+Истинный: Neutral, Предсказан: Positive
+Текст: Ummm Wth....
+#ApexLegends pic.twitter.com/eXcHRvG16o
+Entity: ApexLegends
+Истинный: Negative, Предсказан: Neutral
+Текст: So #Maria was playing FIFA today.
+Entity: FIFA
+Истинный: Neutral, Предсказан: Positive
+Текст: #XSXFridgeSweeps 
+😂 Amazing
+Entity: Xbox(Xseries)
+Истинный: Irrelevant, Предсказан: Positive
+Текст: #Madden20 should make cross play a thing in the next madden! Also gift sending! Streamers would love this and it would help promote the game more with more youtubers being able to send gifts cross platform. @EA_KRAELO @EASPORTS_MUT @EAMaddenNFL
+Entity: MaddenNFL
+Истинный: Negative, Предсказан: Neutral
+Текст: Our Chinese #overwatch fans will be sad to learn that the matches in China during February and March and being rescheduled. pic.twitter.com/HvaTCPiEOv
+Entity: Overwatch
+Истинный: Neutral, Предсказан: Irrelevant
+Текст: #BattlefieldV This is becoming a joke at this point... we havent heard anything since they got back and this is the best they can give us? no actual information on anything. It seems like they havent listened to any feedback to what this community wants.
+Entity: Battlefield
+Истинный: Negative, Предсказан: Irrelevant
+Текст: #RainbowSixSiege where are hereford, plane, chalet and fortress in casual?! I miss the maps!!!
+Entity: TomClancysRainbowSix
+Истинный: Positive, Предсказан: Neutral
+Текст: Oh dear, I'm pleased I'm over 18 😂
+#xbox #cod #CallofDuty #ModernWafare
+#CallofDutyModernWarfare pic.twitter.com/MNgNh6jLRo
+Entity: CallOfDuty
+Истинный: Irrelevant, Предсказан: Positive
+Текст: GAMING GONE WRONG #11 - Fail Compilation (Red Dead Redemption 2, CS:GO, Black Ops 4 Funny Moments) funnyfails.video/gaming-gone-wr…
+Entity: RedDeadRedemption(RDR)
+Истинный: Neutral, Предсказан: Irrelevant
+Текст: Sony dropping pre-orders fearing #RTX3000 series card, hoping people buy their 500$ console instead of rtx 3070, lol this has been one hell of a month 😅🤣, if it wasn't for Nvidia, neither MS or Sony would pull the veil off for Prices and pre-orders https://t.co/gZfEX6MZdn
+Entity: Nvidia
+Истинный: Negative, Предсказан: Neutral
+Текст: The various people in a bad PvP chat 🤣⁠
+
+Visit out website at wowroleplaying.com
+Twitch.tv/wowroleplaying
+
+#warcraftmemes #warcraft #worldofwarcraft #alliance #horde #battleforazeroth #azeroth #forthealliance #forthehorde  #warcraftphotography #videogames #twitchtv #mmorpg https://t.co/w3aNoVPLAH
+Entity: WorldOfCraft
+Истинный: Irrelevant, Предсказан: Neutral
+Текст: I just earned the [Can't Stop Won't Stop] Achievement! #Warcraft #Rhaona #Tichondrius #Sylvanas
+Entity: WorldOfCraft
+Истинный: Neutral, Предсказан: Positive
+Текст: Woohoooo Next #ApexLegends comic is out !!! These are getting so juicy !!! 
+
+youtu.be/RtEUnyYvjU0 https://t.co/h8humm5KF9
+Entity: ApexLegends
+Истинный: Positive, Предсказан: Neutral
+Текст: PTA PUBG ban is unconstitutional in nature because it violates  article 18 of the constitution of the islamic republic of pakistan. The employees involved should be suspended
+ #PTALiftBanOnPUBG
+#unbanpubginpakistan 
+#SavePakistanEsports 
+ @PTAofficialpk @ZakaWaqar pic.twitter.com/Pxh87DXB2Z
+Entity: PlayerUnknownsBattlegrounds(PUBG)
+Истинный: Irrelevant, Предсказан: Neutral
+
+=== НАБЛЮДЕНИЯ ===
+Fine-tuned DistilBERT ошибается редко (38/1000, 3.8%) и почти не путает полярность:
+Positive ↔ Negative случилось один раз, False Negatives нет. Модель уверенно отличает
+«хорошо» от «плохо».
+
+Большинство ошибок — соседние классы, а не противоположные:
+- Neutral ↔ Positive (11) и Neutral ↔ Irrelevant (8) — главные пары;
+- Negative чаще уходит в Neutral (7) или Irrelevant (4), чем в Positive (1).
+Граница Neutral / Irrelevant в Twitter Entity Sentiment размыта: твит может быть
+про игру, новостной ссылкой или оффтопом с хештегом бренда.
+
+Ошибочные тексты длиннее средних (158 vs 132 символа). В длинных твитах смешаны
+несколько тем, новости, URL и оговорки («игра сырая, но атмосфера невероятная»),
+из-за чего золотая метка и поверхностный тон расходятся.
+
+Типичные паттерны:
+1. Двусмысленная лексика. Единственный FP — «I'm addicted to call of duty mobile😅»:
+   «addicted» в разметке Negative, для модели это скорее энтузиазм.
+2. Entity только в хештеге / мимоходом. Жильё «beyond the call of duty», листинг
+   Poshmark с #leagueoflegends, закладка сестры с #RainbowSixSiege — в разметке
+   Irrelevant/Neutral, модель цепляется за имя сущности или позитивные слова.
+3. Новости и ссылки. Мемо Facebook, подкаст Johnson & Johnson, бестселлер Amazon
+   размечены как Negative, предсказание Neutral: тон фактологический, без явной брани.
+4. Смешанная оценка. Ghost Recon «нужны фиксы, но виды потрясающие», сравнение
+   Xbox/PS5, ностальгия по картам Rainbow Six — золото Neutral/Positive, модель
+   берёт самый яркий кусок.
+5. Короткие и эмодзи-твиты («Mori😻😻😻😻», заголовок Let's Play) дают мало
+   сигнала; модель сдвигает их к Positive.
+
+По entity ошибки сконцентрированы в игровых брендах (Rainbow Six, CoD, Apex, RDR,
+PUBG) — это основной домен датасета, а не слабое место конкретной игры. Часть
+золотых меток самой разметки спорная (позитивный твит про сестру как Neutral,
+шутливая «зависимость» как Negative), поэтому потолок качества ниже 100%.
+
