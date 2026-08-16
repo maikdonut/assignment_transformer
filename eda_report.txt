@@ -1,0 +1,117 @@
+EDA: Twitter Entity Sentiment
+
+=== TRAIN ===
+Сырые строки: 74682
+Строки после preprocessing: 73824
+Удалено: 858
+Типы колонок:
+tweet_id      int64
+entity       object
+sentiment    object
+text         object
+Пропуски до очистки:
+tweet_id       0
+entity         0
+sentiment      0
+text         686
+Дубликаты текстов: 4721
+Распределение классов:
+sentiment
+Irrelevant    12842
+Negative      22312
+Neutral       18051
+Positive      20619
+Доли классов:
+sentiment
+Irrelevant    17.40
+Negative      30.22
+Neutral       24.45
+Positive      27.93
+Длины текстов:
+count    73824.00
+mean       108.86
+std         79.43
+min          1.00
+25%         47.00
+50%         91.00
+75%        153.00
+max        957.00
+Уникальных entity: 32
+Топ entity:
+entity
+LeagueOfLegends         2372
+CallOfDuty              2371
+MaddenNFL               2370
+Verizon                 2361
+Facebook                2360
+Dota2                   2359
+WorldOfCraft            2356
+TomClancysRainbowSix    2354
+Microsoft               2349
+ApexLegends             2347
+Примеры по классам:
+Irrelevant:  [Borderlands] Appreciate the (sonic) concepts / praxis Valenzuela and Landa-Posas thread together in this talk: multimodal listening, soundwalks, borderlands frameworks, participatory action research, and testimonios. . . So many thoughtful and resonant intersections here.. .  [Borderlands] Appreciate the (sound) concepts / practices that Valenzuela and Landa-Posas combine in this lecture: multimodal listening, soundwalks, borderland frameworks, participatory action research and testimonies... So many thoughtful and resonant intersections here...
+Negative:  [Borderlands] the biggest dissappoinment in my life came out a year ago fuck borderlands 3  [Borderlands] The biggest disappointment of my life came a year ago.
+Neutral:  [Borderlands] Rock-Hard La Varlope, RARE & POWERFUL, HANDSOME JACKPOT, Borderlands 3 (Xbox) dlvr.it/RMTrgF  [Borderlands] Rock-Hard La Varlope, RARE & POWERFUL, HANDSOME JACKPOT, Borderlands 3 (Xbox) dlvr.it / RMTrgF
+Positive:  [Borderlands] im getting on borderlands and i will murder you all ,  [Borderlands] I am coming to the borders and I will kill you all,
+
+=== VALIDATION ===
+Сырые строки: 1000
+Строки после preprocessing: 1000
+Удалено: 0
+Типы колонок:
+tweet_id      int64
+entity       object
+sentiment    object
+text         object
+Пропуски до очистки:
+tweet_id     0
+entity       0
+sentiment    0
+text         0
+Дубликаты текстов: 1
+Распределение классов:
+sentiment
+Irrelevant    172
+Negative      266
+Neutral       285
+Positive      277
+Доли классов:
+sentiment
+Irrelevant    17.2
+Negative      26.6
+Neutral       28.5
+Positive      27.7
+Длины текстов:
+count    1000.00
+mean      131.31
+std        81.49
+min         3.00
+25%        67.75
+50%       114.00
+75%       189.25
+max       333.00
+Уникальных entity: 32
+Топ entity:
+entity
+RedDeadRedemption(RDR)               40
+johnson&johnson                      39
+PlayerUnknownsBattlegrounds(PUBG)    38
+FIFA                                 38
+LeagueOfLegends                      37
+ApexLegends                          36
+Nvidia                               35
+TomClancysRainbowSix                 35
+GrandTheftAuto(GTA)                  35
+Amazon                               34
+Примеры по классам:
+Irrelevant:  [Facebook] I mentioned on Facebook that I was struggling for motivation to go for a run the other day, which has been translated by Tom’s great auntie as ‘Hayley can’t get out of bed’ and told to his grandma, who now thinks I’m a lazy, terrible person 🤣  [CallOfDuty] Call of duty warzone (livestream) w/ subs #Warzone youtu.be/7BhH_pjOMU4 via @YouTube Please come watch this AMAZING Call of Duty Warzone stream from this AMAZING streamer! It'd be really, really nice to give him some views and likes as well! 😀 #COD #CallofDuty #Warzone
+Negative:  [Microsoft] @Microsoft Why do I pay for WORD when it functions so poorly on my @SamsungUS Chromebook? 🙄  [CS-GO] CSGO matchmaking is so full of closet hacking, it's a truly awful game.
+Neutral:  [Amazon] BBC News - Amazon boss Jeff Bezos rejects claims company acted like a 'drug dealer' bbc.co.uk/news/av/busine…  [Google] Now the President is slapping Americans in the face that he really did commit an unlawful act after his acquittal! From Discover on Google vanityfair.com/news/2020/02/t…
+Positive:  [MaddenNFL] Thank you @EAMaddenNFL!! New TE Austin Hooper in the ORANGE & BROWN!! #Browns | @AustinHooper18 pic.twitter.com/GRg4xzFKOn  [TomClancysRainbowSix] Rocket League, Sea of Thieves or Rainbow Six: Siege🤔? I love playing all three on stream but which is the best? #stream #twitch #RocketLeague #SeaOfThieves #RainbowSixSiege #follow
+
+=== ПЕРВЫЕ ВЫВОДЫ ===
+- В train крупнейший класс — Negative (30.2%).
+- Медианная длина train-текста — 91 символов.
+- После preprocessing осталось 73824/74682 train и 1000/1000 validation примеров.
+- Для итоговой оценки используется отдельный validation-файл; подбор baseline выполняется только на train.

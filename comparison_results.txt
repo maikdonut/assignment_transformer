@@ -6,11 +6,11 @@ Fine-tuned Model:
   F1 (macro): 0.9606
   Accuracy: 0.9620
 
-Baseline Model (CLS + Logistic Regression):
-  F1 (macro): 0.6015
-  Accuracy: 0.6210
+Baseline Model (best frozen CLS classifier):
+  F1 (macro): 0.6119
+  Accuracy: 0.6260
 
-Улучшение F1: 59.71%
+Улучшение F1: 56.98%
 
 === Fine-tuned classification report ===
               precision    recall  f1-score   support
@@ -27,11 +27,11 @@ weighted avg       0.96      0.96      0.96      1000
 === Baseline classification report ===
               precision    recall  f1-score   support
 
-  Irrelevant       0.60      0.40      0.48       172
-    Negative       0.62      0.76      0.68       266
-     Neutral       0.63      0.55      0.59       285
-    Positive       0.62      0.70      0.66       277
+  Irrelevant       0.57      0.46      0.51       172
+    Negative       0.64      0.75      0.69       266
+     Neutral       0.62      0.56      0.59       285
+    Positive       0.64      0.68      0.66       277
 
-    accuracy                           0.62      1000
-   macro avg       0.62      0.60      0.60      1000
-weighted avg       0.62      0.62      0.61      1000
+    accuracy                           0.63      1000
+   macro avg       0.62      0.61      0.61      1000
+weighted avg       0.62      0.63      0.62      1000

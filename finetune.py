@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 from transformers import AutoModelForSequenceClassification
 
+from baseline import read_baseline_f1
 from config import (
     EN_MODEL_NAME,
     FINE_TUNED_MODEL_DIR,
@@ -18,8 +19,6 @@ from config import (
 from data import load_train_val
 from embeddings import get_device
 from tokenization import load_tokenizer
-
-BASELINE_MACRO_F1 = 0.6017
 
 
 class SentimentDataset(Dataset):
@@ -182,8 +181,10 @@ def run_finetune(max_samples=None):
         target_names=target_names,
         digits=2,
     )
+    baseline_f1 = read_baseline_f1()
+    baseline_text = f"{baseline_f1:.4f}" if baseline_f1 is not None else "не рассчитан"
     print(report)
-    print(f"Macro F1: {val_f1:.4f} (baseline: {BASELINE_MACRO_F1:.4f})")
+    print(f"Macro F1: {val_f1:.4f} (baseline: {baseline_text})")
 
     FINE_TUNED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(FINE_TUNED_MODEL_DIR)
@@ -200,7 +201,7 @@ def run_finetune(max_samples=None):
         f"val={VAL_CSV.name} ({len(val_texts)})\n"
         f"Final Validation Accuracy: {val_acc:.4f}\n"
         f"Final Validation F1: {val_f1:.4f}\n"
-        f"baseline macro F1: {BASELINE_MACRO_F1:.4f}\n\n"
+        f"baseline macro F1: {baseline_text}\n\n"
         f"{report}"
     )
     FINE_TUNED_RESULTS_PATH.write_text(results, encoding="utf-8")

@@ -4,7 +4,7 @@
 
 Проект по анализу тональности твитов (Twitter Entity Sentiment) с трансформерами. Четыре класса: **Irrelevant**, **Negative**, **Neutral**, **Positive**.
 
-Пайплайн: токенизация → CLS-эмбеддинги DistilBERT → baseline (логистическая регрессия) → fine-tuning DistilBERT → сравнение моделей → анализ ошибок → Gradio-демо.
+Пайплайн: EDA и preprocessing → токенизация → CLS-эмбеддинги DistilBERT → подбор frozen baseline → fine-tuning DistilBERT → сравнение моделей → динамический анализ ошибок → Gradio-демо.
 
 ## Структура
 
@@ -12,15 +12,17 @@
 
 **Данные**
 - `data/twitter_training.csv`, `data/twitter_validation.csv` — датасет
-- `data.py`, `config.py` — загрузка и пути
+- `preprocessing.py`, `data.py` — единая очистка для train и inference
+- `eda.py`, `eda_report.txt`, `eda_plots/` — анализ датасета и выводы
 
 **Обучение**
 - `tokenization.py`, `embeddings.py` — токенизация и CLS-эмбеддинги
-- `baseline.py` — Logistic Regression на CLS
+- `baseline.py` — train-only CV для Logistic Regression / LinearSVC на CLS
 - `finetune.py` — дообучение DistilBERT
-- `fine_tuned_model/` — сохранённая модель (веса в `.gitignore`)
+- `fine_tuned_model/` — локальный checkpoint (веса в `.gitignore`)
 
 **Сравнение и анализ**
+- `inference.py` — единая загрузка локальной/Hub-модели и предсказание
 - `compare.py` — инференс и сравнение с baseline
 - `error_analysis.py` — False Positive / False Negative и паттерны ошибок
 - `comparison_results.txt`, `error_analysis.txt`, `*_results.txt`
@@ -37,7 +39,12 @@ Python 3.10+, [uv](https://docs.astral.sh/uv/).
 uv sync
 ```
 
-Веса `fine_tuned_model/` в git не хранятся. Если папки нет, сначала дообучите модель:
+Веса `fine_tuned_model/` в git не хранятся. Если локальной папки нет,
+модель автоматически загружается из `martinjob/twitter-sentiment-distilbert`
+на Hugging Face Hub. Для полностью offline-запуска заранее поместите checkpoint
+в `fine_tuned_model/`.
+
+Повторное обучение требуется только для воспроизведения эксперимента:
 
 ```bash
 uv run python main.py --finetune
@@ -60,40 +67,48 @@ Validation: `twitter_validation.csv` (1000 примеров).
 - F1 (macro): 0.9606
 - Accuracy: 0.9620
 
-### Baseline модель (CLS + Logistic Regression)
+### Baseline модель (лучший frozen CLS classifier)
 
-- F1 (macro): 0.6015
-- Accuracy: 0.6210
+- F1 (macro): 0.6119
+- Accuracy: 0.6260
 
-Улучшение F1: 59.71%
+Улучшение F1: 56.98%
 
-На 1000 val-примерах у fine-tuned модели 38 ошибок (3.8%). Почти нет смены полярности Positive ↔ Negative (1 FP, 0 FN); чаще путаются Neutral / Irrelevant / Positive. Подробности — в `error_analysis.txt`.
+`error_analysis.txt` при каждом запуске строится из актуальных предсказаний:
+ошибки, пары путаницы, FP/FN, длины, URL, хештеги и top entities.
 
 ## Команды
 
 ```bash
 uv run python main.py              # токенизация, эмбеддинги, baseline
+uv run python main.py --eda        # EDA, отчёт и графики
 uv run python main.py --attention  # визуализация attention
 uv run python main.py --finetune   # дообучение DistilBERT
 uv run python main.py --compare    # сравнение с baseline
 uv run python main.py --errors     # анализ ошибок
 uv run python app.py               # Gradio-демо
+uv run pytest -q                   # быстрые тесты (после uv sync --extra dev)
 ```
 
 ## Использование в коде
 
 ```python
-import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from inference import predict_sentiments
 
-model = AutoModelForSequenceClassification.from_pretrained("./fine_tuned_model")
-tokenizer = AutoTokenizer.from_pretrained("./fine_tuned_model")
-
-inputs = tokenizer("Your text here", return_tensors="pt", truncation=True, max_length=128)
-outputs = model(**inputs)
-pred_id = int(torch.argmax(outputs.logits, dim=1))
-label = model.config.id2label[pred_id]
+result = predict_sentiments("Your text here")[0]
+print(result["prediction"], result["probabilities"])
 ```
+
+## Воспроизводимость
+
+- Preprocessing сохраняет пунктуацию, URL и эмодзи, но нормализует пробелы и
+  удаляет пустые/невалидные строки.
+- CLS-кэш имеет fingerprint текстов, encoder и `max_length`; устаревший кэш
+  автоматически пересчитывается.
+- Варианты baseline выбираются по stratified CV только на train. Validation
+  используется один раз для итогового отчёта.
+- Для публикации локального checkpoint: `uv run hf auth login`, затем
+  `uv run hf upload martinjob/twitter-sentiment-distilbert fine_tuned_model .`.
 
 ## Требования
 

@@ -10,10 +10,11 @@ import torch
 
 from baseline import run_baseline
 from compare import run_compare
+from eda import run_eda
 from embeddings import get_cls_embeddings, load_encoder
 from error_analysis import run_error_analysis
 from finetune import run_finetune
-from tokenization import load_tokenizer, tokenize_texts
+from tokenization import explain_tokenization, load_tokenizer, tokenize_texts
 
 PLOTS_DIR = Path("attention_plots")
 
@@ -99,6 +100,8 @@ def smoke_tokenization():
         decoded = tokenizer.convert_ids_to_tokens(tokens["input_ids"][i])
         print(f"\nТекст: {text}")
         print(f"Токены: {decoded}")
+    print("\n=== explain_tokenization ===")
+    explain_tokenization("Transformers are amazing!", tokenizer)
     return tokens
 
 
@@ -176,6 +179,11 @@ def parse_args():
         description="Assignment transformer: baseline, attention, fine-tuning, сравнение и анализ ошибок"
     )
     parser.add_argument(
+        "--eda",
+        action="store_true",
+        help="Провести EDA датасета и сохранить отчёт",
+    )
+    parser.add_argument(
         "--attention",
         action="store_true",
         help="Запустить визуализацию внимания (День 3)",
@@ -206,6 +214,9 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.eda:
+        run_eda()
+        return
     if args.attention:
         run_attention()
         return

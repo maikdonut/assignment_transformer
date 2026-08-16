@@ -3,29 +3,24 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-import torch
-import torch.nn.functional as F
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
     confusion_matrix,
     f1_score,
 )
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from baseline import load_or_fit_baseline
 from config import (
     BATCH_SIZE,
+    CLASS_NAMES,
     COMPARISON_RESULTS_PATH,
-    FINE_TUNED_MODEL_DIR,
-    MAX_LENGTH,
     ROOT,
     VAL_CSV,
 )
 from data import load_train_val
-from embeddings import get_cls_embeddings, get_device, load_encoder
-
-CLASS_NAMES = ["Irrelevant", "Negative", "Neutral", "Positive"]
+from embeddings import get_cls_embeddings, load_encoder
+from inference import SentimentModel, load_sentiment_model, predict_sentiments
 
 EXAMPLE_TEXTS = [
     "This movie was absolutely fantastic!",
@@ -49,47 +44,23 @@ def _as_list(texts):
     return list(texts)
 
 
-def _id2label(model):
-    return {int(k): v for k, v in model.config.id2label.items()}
-
-
-def predict_fine_tuned(texts, model, tokenizer, device=None, batch_size=BATCH_SIZE):
-    texts = _as_list(texts)
-    if device is None:
-        device = next(model.parameters()).device
-
-    id2label = _id2label(model)
-    predictions = []
-
-    for start in range(0, len(texts), batch_size):
-        batch_texts = texts[start : start + batch_size]
-        inputs = tokenizer(
-            batch_texts,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=MAX_LENGTH,
+def predict_fine_tuned(
+    texts, model=None, tokenizer=None, device=None, batch_size=BATCH_SIZE
+):
+    if model is None:
+        return predict_sentiments(texts, batch_size=batch_size)
+    if isinstance(model, SentimentModel):
+        loaded = model
+    else:
+        device = device or next(model.parameters()).device
+        loaded = SentimentModel(
+            tokenizer=tokenizer,
+            model=model,
+            device=device,
+            id2label={int(k): v for k, v in model.config.id2label.items()},
+            source="provided",
         )
-        inputs = {key: value.to(device) for key, value in inputs.items()}
-
-        with torch.no_grad():
-            outputs = model(**inputs)
-
-        probs = F.softmax(outputs.logits, dim=1)
-        pred_ids = torch.argmax(probs, dim=1)
-
-        for i, text in enumerate(batch_texts):
-            label_id = int(pred_ids[i].item())
-            predictions.append(
-                {
-                    "text": text,
-                    "prediction": id2label[label_id],
-                    "label_id": label_id,
-                    "probabilities": probs[i].cpu().numpy(),
-                }
-            )
-
-    return predictions
+    return predict_sentiments(texts, loaded, batch_size=batch_size)
 
 
 def predict_baseline(texts, clf, tokenizer, encoder, device=None):
@@ -144,8 +115,13 @@ def print_examples(preds_ft, preds_base, class_names, baseline_classes):
             f"{class_names[i]}={ft['probabilities'][i]:.2f}"
             for i in range(len(class_names))
         )
-        base_probs = ", ".join(
-            f"{label}={p:.2f}" for label, p in zip(baseline_classes, base["probabilities"])
+        base_probs = (
+            ", ".join(
+                f"{label}={p:.2f}"
+                for label, p in zip(baseline_classes, base["probabilities"])
+            )
+            if base["probabilities"] is not None
+            else "probabilities unavailable"
         )
         print(f"Fine-tuned: {ft['prediction']} ({ft_probs})")
         print(f"Baseline:   {base['prediction']} ({base_probs})")
@@ -153,39 +129,24 @@ def print_examples(preds_ft, preds_base, class_names, baseline_classes):
 
 
 def run_compare():
-    if not FINE_TUNED_MODEL_DIR.exists():
-        raise FileNotFoundError(
-            f"Нет fine-tuned модели: {FINE_TUNED_MODEL_DIR}. Сначала: python main.py --finetune"
-        )
-
-    device = get_device()
-    print(f"device: {device}")
-
-    tokenizer_ft = AutoTokenizer.from_pretrained(FINE_TUNED_MODEL_DIR)
-    model_ft = AutoModelForSequenceClassification.from_pretrained(FINE_TUNED_MODEL_DIR)
-    model_ft.to(device)
-    model_ft.eval()
+    model_ft = load_sentiment_model()
 
     clf = load_or_fit_baseline()
-    encoder_tokenizer, encoder, encoder_device = load_encoder(device=device)
+    encoder_tokenizer, encoder, encoder_device = load_encoder(device=model_ft.device)
 
     _, val_df = load_train_val()
     test_texts = val_df["text"].tolist()
     test_labels = val_df["sentiment"].astype(str).tolist()
     print(f"Val: {len(test_texts)} примеров ({VAL_CSV.name})")
 
-    preds_ft_examples = predict_fine_tuned(
-        EXAMPLE_TEXTS, model_ft, tokenizer_ft, device=device
-    )
+    preds_ft_examples = predict_sentiments(EXAMPLE_TEXTS, model_ft)
     preds_base_examples = predict_baseline(
         EXAMPLE_TEXTS, clf, encoder_tokenizer, encoder, device=encoder_device
     )
     print_examples(preds_ft_examples, preds_base_examples, CLASS_NAMES, clf.classes_)
 
     print("\n=== Предсказания на validation ===")
-    preds_ft_all = predict_fine_tuned(
-        test_texts, model_ft, tokenizer_ft, device=device
-    )
+    preds_ft_all = predict_sentiments(test_texts, model_ft)
     preds_base_all = predict_baseline(
         test_texts, clf, encoder_tokenizer, encoder, device=encoder_device
     )
@@ -228,7 +189,7 @@ def run_compare():
         "Fine-tuned Model:\n"
         f"  F1 (macro): {f1_ft:.4f}\n"
         f"  Accuracy: {acc_ft:.4f}\n\n"
-        "Baseline Model (CLS + Logistic Regression):\n"
+        "Baseline Model (best frozen CLS classifier):\n"
         f"  F1 (macro): {f1_base:.4f}\n"
         f"  Accuracy: {acc_base:.4f}\n\n"
         f"Улучшение F1: {improvement:.2f}%\n\n"

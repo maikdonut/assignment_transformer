@@ -1,0 +1,5 @@
+{
+  "candidate": "linear_svc_balanced",
+  "train_fingerprint": "956d55cabd623a2ea5dea0418715f6ddc38a29b9488274a99055291c639b8747",
+  "encoder": "distilbert-base-uncased"
+}

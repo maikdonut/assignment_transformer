@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +24,35 @@ def load_encoder(model_name=EN_MODEL_NAME, device=None, output_attentions=False)
     return tokenizer, model, device
 
 
+def cache_fingerprint(texts, model_name=EN_MODEL_NAME, max_length=MAX_LENGTH):
+    digest = hashlib.sha256()
+    digest.update(f"{model_name}\0{max_length}\0".encode())
+    for text in texts:
+        digest.update(str(text).encode("utf-8"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _cache_metadata_path(cache_path):
+    return cache_path.with_suffix(cache_path.suffix + ".json")
+
+
+def _load_valid_cache(cache_path, fingerprint, expected_rows):
+    metadata_path = _cache_metadata_path(cache_path)
+    if not cache_path.exists() or not metadata_path.exists():
+        return None
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if metadata.get("fingerprint") != fingerprint:
+            return None
+        embeddings = np.load(cache_path)
+        if embeddings.shape[0] != expected_rows:
+            return None
+        return embeddings
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def get_cls_embeddings(
     texts,
     batch_size=BATCH_SIZE,
@@ -32,9 +63,14 @@ def get_cls_embeddings(
     cache_path=None,
 ):
     cache_path = Path(cache_path) if cache_path is not None else None
-    if cache_path is not None and cache_path.exists():
-        print(f"Загружаю эмбеддинги из кэша: {cache_path}")
-        return np.load(cache_path)
+    fingerprint = cache_fingerprint(texts, max_length=max_length)
+    if cache_path is not None:
+        cached = _load_valid_cache(cache_path, fingerprint, len(texts))
+        if cached is not None:
+            print(f"Загружаю эмбеддинги из кэша: {cache_path}")
+            return cached
+        if cache_path.exists():
+            print(f"Кэш устарел, пересчитываю: {cache_path}")
 
     if tokenizer is None or model is None:
         tokenizer, model, device = load_encoder(device=device)
@@ -60,6 +96,16 @@ def get_cls_embeddings(
     if cache_path is not None:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         np.save(cache_path, embeddings)
+        metadata = {
+            "fingerprint": fingerprint,
+            "rows": len(texts),
+            "model": EN_MODEL_NAME,
+            "max_length": max_length,
+        }
+        _cache_metadata_path(cache_path).write_text(
+            json.dumps(metadata, indent=2),
+            encoding="utf-8",
+        )
         print(f"Сохранены эмбеддинги: {cache_path}")
 
     return embeddings

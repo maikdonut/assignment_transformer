@@ -1,50 +1,13 @@
 import sys
 
 import pandas as pd
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-from compare import CLASS_NAMES, predict_fine_tuned
-from config import ERROR_ANALYSIS_PATH, FINE_TUNED_MODEL_DIR, VAL_CSV
+from config import CLASS_NAMES, ERROR_ANALYSIS_PATH, VAL_CSV
 from data import load_train_val
-from embeddings import get_device
+from inference import load_sentiment_model, predict_sentiments
 
 POSITIVE = "Positive"
 NEGATIVE = "Negative"
-
-OBSERVATIONS = """\
-Fine-tuned DistilBERT ошибается редко (38/1000, 3.8%) и почти не путает полярность:
-Positive ↔ Negative случилось один раз, False Negatives нет. Модель уверенно отличает
-«хорошо» от «плохо».
-
-Большинство ошибок — соседние классы, а не противоположные:
-- Neutral ↔ Positive (11) и Neutral ↔ Irrelevant (8) — главные пары;
-- Negative чаще уходит в Neutral (7) или Irrelevant (4), чем в Positive (1).
-Граница Neutral / Irrelevant в Twitter Entity Sentiment размыта: твит может быть
-про игру, новостной ссылкой или оффтопом с хештегом бренда.
-
-Ошибочные тексты длиннее средних (158 vs 132 символа). В длинных твитах смешаны
-несколько тем, новости, URL и оговорки («игра сырая, но атмосфера невероятная»),
-из-за чего золотая метка и поверхностный тон расходятся.
-
-Типичные паттерны:
-1. Двусмысленная лексика. Единственный FP — «I'm addicted to call of duty mobile😅»:
-   «addicted» в разметке Negative, для модели это скорее энтузиазм.
-2. Entity только в хештеге / мимоходом. Жильё «beyond the call of duty», листинг
-   Poshmark с #leagueoflegends, закладка сестры с #RainbowSixSiege — в разметке
-   Irrelevant/Neutral, модель цепляется за имя сущности или позитивные слова.
-3. Новости и ссылки. Мемо Facebook, подкаст Johnson & Johnson, бестселлер Amazon
-   размечены как Negative, предсказание Neutral: тон фактологический, без явной брани.
-4. Смешанная оценка. Ghost Recon «нужны фиксы, но виды потрясающие», сравнение
-   Xbox/PS5, ностальгия по картам Rainbow Six — золото Neutral/Positive, модель
-   берёт самый яркий кусок.
-5. Короткие и эмодзи-твиты («Mori😻😻😻😻», заголовок Let's Play) дают мало
-   сигнала; модель сдвигает их к Positive.
-
-По entity ошибки сконцентрированы в игровых брендах (Rainbow Six, CoD, Apex, RDR,
-PUBG) — это основной домен датасета, а не слабое место конкретной игры. Часть
-золотых меток самой разметки спорная (позитивный твит про сестру как Neutral,
-шутливая «зависимость» как Negative), поэтому потолок качества ниже 100%.
-"""
 
 
 def _console(text):
@@ -90,6 +53,49 @@ def _entity_counts(errors, top_n=10):
     return "\n".join(f"  {name}: {int(n)}" for name, n in counts.items())
 
 
+def generate_observations(df_test, errors, fp, fn):
+    n_test = len(df_test)
+    n_errors = len(errors)
+    error_rate = n_errors / n_test * 100 if n_test else 0.0
+    mean_all = df_test["text"].str.len().mean() if n_test else 0.0
+    mean_errors = errors["text"].str.len().mean() if n_errors else 0.0
+
+    pairs = (
+        errors.groupby(["true_label", "pred_label"])
+        .size()
+        .sort_values(ascending=False)
+        .head(3)
+    )
+    pair_text = (
+        ", ".join(f"{true} → {pred}: {int(count)}" for (true, pred), count in pairs.items())
+        if not pairs.empty
+        else "ошибок нет"
+    )
+    url_count = int(errors["text"].str.contains(r"https?://|www\.|t\.co/", case=False, regex=True).sum())
+    hashtag_count = int(errors["text"].str.contains("#", regex=False).sum())
+    short_count = int((errors["text"].str.len() < 30).sum())
+    top_entity = errors["entity"].value_counts().head(1)
+    entity_text = (
+        f"{top_entity.index[0]} ({int(top_entity.iloc[0])})"
+        if not top_entity.empty
+        else "нет"
+    )
+
+    length_relation = "длиннее" if mean_errors > mean_all else "короче или равны"
+    return (
+        f"Отчёт построен автоматически по текущим предсказаниям.\n"
+        f"- Ошибок: {n_errors}/{n_test} ({error_rate:.1f}%).\n"
+        f"- Смена полярности: FP Positive вместо Negative — {len(fp)}, "
+        f"FN Negative вместо Positive — {len(fn)}.\n"
+        f"- Главные пары путаницы: {pair_text}.\n"
+        f"- Ошибочные тексты в среднем {length_relation} полного набора: "
+        f"{mean_errors:.0f} против {mean_all:.0f} символов.\n"
+        f"- Среди ошибок: URL — {url_count}, хештег — {hashtag_count}, "
+        f"коротких текстов (<30 символов) — {short_count}.\n"
+        f"- Entity с наибольшим числом ошибок: {entity_text}."
+    )
+
+
 def write_error_analysis(df_test, errors, fp, fn, other, observations):
     n_test = len(df_test)
     n_errors = len(errors)
@@ -127,25 +133,13 @@ def write_error_analysis(df_test, errors, fp, fn, other, observations):
 
 
 def run_error_analysis(observations=None):
-    if not FINE_TUNED_MODEL_DIR.exists():
-        raise FileNotFoundError(
-            f"Нет fine-tuned модели: {FINE_TUNED_MODEL_DIR}. "
-            "Сначала: python main.py --finetune"
-        )
-
-    device = get_device()
-    print(f"device: {device}")
-
-    tokenizer = AutoTokenizer.from_pretrained(FINE_TUNED_MODEL_DIR)
-    model = AutoModelForSequenceClassification.from_pretrained(FINE_TUNED_MODEL_DIR)
-    model.to(device)
-    model.eval()
+    model = load_sentiment_model()
 
     _, val_df = load_train_val()
     test_texts = val_df["text"].tolist()
     print(f"Val: {len(test_texts)} примеров ({VAL_CSV.name})")
 
-    preds = predict_fine_tuned(test_texts, model, tokenizer, device=device)
+    preds = predict_sentiments(test_texts, model)
     df_test = pd.DataFrame(
         {
             "text": test_texts,
@@ -182,7 +176,7 @@ def run_error_analysis(observations=None):
     print(f"Средняя длина всех текстов: {df_test['text'].str.len().mean():.0f}")
 
     if observations is None:
-        observations = OBSERVATIONS
+        observations = generate_observations(df_test, errors, fp, fn)
 
     write_error_analysis(df_test, errors, fp, fn, other, observations)
     return df_test, errors, fp, fn, other
