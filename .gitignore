@@ -64,5 +64,6 @@ attention_plots/
 # CLS embedding cache
 data/cache/
 
-# Fine-tuned model weights
-fine_tuned_model/
+# Fine-tuned checkpoint is a project artifact; its weights use Git LFS.
+!fine_tuned_model/
+!fine_tuned_model/**

@@ -2,11 +2,16 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 
-from error_analysis import generate_observations
-from config import FINE_TUNED_MODEL_ID
-from inference import SentimentModel, predict_sentiments, resolve_model_source
+from error_analysis import categorize_positive_errors, generate_observations
+from inference import (
+    REQUIRED_MODEL_FILES,
+    SentimentModel,
+    predict_sentiments,
+    validate_model_dir,
+)
 
 
 class FakeTokenizer:
@@ -40,31 +45,64 @@ def test_predict_sentiments_uses_common_preprocessing():
     assert np.isclose(result["probabilities"].sum(), 1.0)
 
 
-def test_model_source_prefers_local_then_hub(tmp_path):
-    missing = tmp_path / "missing"
-    local = tmp_path / "model"
-    local.mkdir()
+def test_model_dir_is_required_and_never_falls_back_to_hub(tmp_path):
+    with pytest.raises(FileNotFoundError, match="git lfs pull"):
+        validate_model_dir(tmp_path / "missing")
 
-    assert resolve_model_source(missing) == FINE_TUNED_MODEL_ID
-    assert resolve_model_source(local) == str(local)
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    for name in REQUIRED_MODEL_FILES:
+        (model_dir / name).write_text("{}", encoding="utf-8")
+    (model_dir / "model.safetensors").write_text(
+        "version https://git-lfs.github.com/spec/v1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="Git LFS pointer"):
+        validate_model_dir(model_dir)
 
 
-def test_generate_observations_uses_current_counts():
-    df_test = pd.DataFrame(
+def test_positive_fp_fn_are_multiclass_one_vs_rest():
+    errors = pd.DataFrame(
         {
-            "text": ["good", "bad https://x.test", "#neutral"],
-            "true_label": ["Positive", "Negative", "Neutral"],
-            "pred_label": ["Negative", "Positive", "Neutral"],
-            "entity": ["A", "A", "B"],
+            "text": [
+                "negative to positive",
+                "neutral to positive",
+                "irrelevant to positive",
+                "positive to negative",
+                "positive to neutral",
+                "positive to irrelevant",
+                "negative to neutral",
+            ],
+            "true_label": [
+                "Negative",
+                "Neutral",
+                "Irrelevant",
+                "Positive",
+                "Positive",
+                "Positive",
+                "Negative",
+            ],
+            "pred_label": [
+                "Positive",
+                "Positive",
+                "Positive",
+                "Negative",
+                "Neutral",
+                "Irrelevant",
+                "Neutral",
+            ],
+            "entity": ["A"] * 7,
         }
     )
-    errors = df_test.iloc[:2].copy()
-    fp = errors.iloc[[1]]
-    fn = errors.iloc[[0]]
+    fp, fn, other = categorize_positive_errors(errors)
 
-    observations = generate_observations(df_test, errors, fp, fn)
+    assert len(fp) == 3
+    assert len(fn) == 3
+    assert len(other) == 1
 
-    assert "2/3 (66.7%)" in observations
-    assert "FP Positive вместо Negative — 1" in observations
-    assert "FN Negative вместо Positive — 1" in observations
-    assert "URL — 1" in observations
+    observations = generate_observations(errors, errors, fp, fn)
+
+    assert "False Positives — 3" in observations
+    assert "False Negatives — 3" in observations
+    assert "Negative → Positive — 1" in observations
+    assert "Positive → Negative — 1" in observations

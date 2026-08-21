@@ -53,6 +53,18 @@ def _entity_counts(errors, top_n=10):
     return "\n".join(f"  {name}: {int(n)}" for name, n in counts.items())
 
 
+def categorize_positive_errors(errors):
+    """Разделяет multiclass-ошибки по схеме Positive vs Rest."""
+    fp = errors[
+        (errors["pred_label"] == POSITIVE) & (errors["true_label"] != POSITIVE)
+    ]
+    fn = errors[
+        (errors["true_label"] == POSITIVE) & (errors["pred_label"] != POSITIVE)
+    ]
+    other = errors.drop(index=fp.index.union(fn.index))
+    return fp, fn, other
+
+
 def generate_observations(df_test, errors, fp, fn):
     n_test = len(df_test)
     n_errors = len(errors)
@@ -80,13 +92,27 @@ def generate_observations(df_test, errors, fp, fn):
         if not top_entity.empty
         else "нет"
     )
+    negative_to_positive = int(
+        (
+            (errors["true_label"] == NEGATIVE)
+            & (errors["pred_label"] == POSITIVE)
+        ).sum()
+    )
+    positive_to_negative = int(
+        (
+            (errors["true_label"] == POSITIVE)
+            & (errors["pred_label"] == NEGATIVE)
+        ).sum()
+    )
 
     length_relation = "длиннее" if mean_errors > mean_all else "короче или равны"
     return (
         f"Отчёт построен автоматически по текущим предсказаниям.\n"
         f"- Ошибок: {n_errors}/{n_test} ({error_rate:.1f}%).\n"
-        f"- Смена полярности: FP Positive вместо Negative — {len(fp)}, "
-        f"FN Negative вместо Positive — {len(fn)}.\n"
+        f"- Positive vs Rest: False Positives — {len(fp)}, "
+        f"False Negatives — {len(fn)}.\n"
+        f"- Прямая смена полярности: Negative → Positive — "
+        f"{negative_to_positive}, Positive → Negative — {positive_to_negative}.\n"
         f"- Главные пары путаницы: {pair_text}.\n"
         f"- Ошибочные тексты в среднем {length_relation} полного набора: "
         f"{mean_errors:.0f} против {mean_all:.0f} символов.\n"
@@ -106,8 +132,8 @@ def write_error_analysis(df_test, errors, fp, fn, other, observations):
         "=== АНАЛИЗ ОШИБОК ===\n\n"
         f"split: val={VAL_CSV.name} ({n_test})\n"
         f"Всего ошибок: {n_errors} ({n_errors / n_test * 100:.1f}%)\n"
-        f"False Positives (Positive вместо Negative): {len(fp)}\n"
-        f"False Negatives (Negative вместо Positive): {len(fn)}\n"
+        f"False Positives (предсказан Positive, true не Positive): {len(fp)}\n"
+        f"False Negatives (true Positive, предсказан не Positive): {len(fn)}\n"
         f"Прочие ошибки: {len(other)}\n\n"
         "=== ПАРЫ ПУТАНИЦЫ (true → pred) ===\n"
         f"{_confusion_pairs(errors)}\n\n"
@@ -117,10 +143,10 @@ def write_error_analysis(df_test, errors, fp, fn, other, observations):
         "=== ТОП ENTITY СРЕДИ ОШИБОК ===\n"
         f"{_entity_counts(errors)}\n\n"
         "=== ПРИМЕРЫ FALSE POSITIVES ===\n"
-        "предсказала Positive, истинный класс Negative\n"
+        "предсказала Positive, истинный класс не Positive\n"
         f"{_format_examples(fp)}\n\n"
         "=== ПРИМЕРЫ FALSE NEGATIVES ===\n"
-        "предсказала Negative, истинный класс Positive\n"
+        "истинный класс Positive, предсказан другой класс\n"
         f"{_format_examples(fn)}\n\n"
         "=== ПРОЧИЕ ОШИБКИ ===\n"
         f"{_format_examples(other)}\n\n"
@@ -152,23 +178,17 @@ def run_error_analysis(observations=None):
     errors = df_test[df_test["true_label"] != df_test["pred_label"]].copy()
     errors["text_length"] = errors["text"].str.len()
 
-    fp = errors[
-        (errors["pred_label"] == POSITIVE) & (errors["true_label"] == NEGATIVE)
-    ]
-    fn = errors[
-        (errors["pred_label"] == NEGATIVE) & (errors["true_label"] == POSITIVE)
-    ]
-    other = errors.drop(index=fp.index.union(fn.index))
+    fp, fn, other = categorize_positive_errors(errors)
 
     print(f"Всего ошибок: {len(errors)}")
     print(f"False Positives: {len(fp)}")
     print(f"False Negatives: {len(fn)}")
     print(f"Прочие: {len(other)}")
-    print("\n=== FALSE POSITIVES (сказали good, а было bad) ===")
+    print("\n=== FALSE POSITIVES (Positive вместо любого другого класса) ===")
     for _, row in fp.iterrows():
         print(_console(f"\nТекст: {row['text'][:100]}..."))
         print(f"Истинный класс: {row['true_label']}, Предсказан: {row['pred_label']}")
-    print("\n=== FALSE NEGATIVES (сказали bad, а было good) ===")
+    print("\n=== FALSE NEGATIVES (Positive предсказан другим классом) ===")
     for _, row in fn.iterrows():
         print(_console(f"\nТекст: {row['text'][:100]}..."))
         print(f"Истинный класс: {row['true_label']}, Предсказан: {row['pred_label']}")

@@ -19,10 +19,10 @@
 - `tokenization.py`, `embeddings.py` — токенизация и CLS-эмбеддинги
 - `baseline.py` — train-only CV для Logistic Regression / LinearSVC на CLS
 - `finetune.py` — дообучение DistilBERT
-- `fine_tuned_model/` — локальный checkpoint (веса в `.gitignore`)
+- `fine_tuned_model/` — checkpoint из Дня 5 (веса отслеживаются Git LFS)
 
 **Сравнение и анализ**
-- `inference.py` — единая загрузка локальной/Hub-модели и предсказание
+- `inference.py` — единая загрузка локального checkpoint и предсказание
 - `compare.py` — инференс и сравнение с baseline
 - `error_analysis.py` — False Positive / False Negative и паттерны ошибок
 - `comparison_results.txt`, `error_analysis.txt`, `*_results.txt`
@@ -39,10 +39,16 @@ Python 3.10+, [uv](https://docs.astral.sh/uv/).
 uv sync
 ```
 
-Веса `fine_tuned_model/` в git не хранятся. Если локальной папки нет,
-модель автоматически загружается из `martinjob/twitter-sentiment-distilbert`
-на Hugging Face Hub. Для полностью offline-запуска заранее поместите checkpoint
-в `fine_tuned_model/`.
+После клонирования получите checkpoint, сохранённый `finetune.py`, через Git LFS:
+
+```bash
+git lfs install
+git lfs pull
+```
+
+`app.py`, `--compare` и `--errors` используют только `fine_tuned_model/`.
+Внешний checkpoint не подставляется. Если LFS-веса не загружены, приложение
+завершится с подсказкой выполнить `git lfs pull`.
 
 Повторное обучение требуется только для воспроизведения эксперимента:
 
@@ -74,8 +80,9 @@ Validation: `twitter_validation.csv` (1000 примеров).
 
 Улучшение F1: 56.98%
 
-`error_analysis.txt` при каждом запуске строится из актуальных предсказаний:
-ошибки, пары путаницы, FP/FN, длины, URL, хештеги и top entities.
+`error_analysis.txt` при каждом запуске строится из актуальных предсказаний.
+FP/FN считаются для класса Positive по схеме one-vs-rest; прямые смены
+Negative ↔ Positive выводятся отдельно.
 
 ## Команды
 
@@ -107,8 +114,8 @@ print(result["prediction"], result["probabilities"])
   автоматически пересчитывается.
 - Варианты baseline выбираются по stratified CV только на train. Validation
   используется один раз для итогового отчёта.
-- Для публикации локального checkpoint: `uv run hf auth login`, затем
-  `uv run hf upload martinjob/twitter-sentiment-distilbert fine_tuned_model .`.
+- `fine_tuned_model/model.safetensors` хранится через Git LFS; конфигурация и
+  токенизатор находятся в обычном Git.
 
 ## Требования
 
